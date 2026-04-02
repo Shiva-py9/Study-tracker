@@ -1,0 +1,5 @@
+{
+  "name": "Shiva's 21-Day Battle Dashboard",
+  "description": "A personal productivity and study tracker for a 21-day exam preparation battle.",
+  "requestFramePermissions": ["notifications"]
+}

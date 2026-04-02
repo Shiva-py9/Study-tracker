@@ -1,0 +1,202 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: userId (UID)
+// Fields:
+//   - uid: string (required) - Firebase Auth UID
+//   - email: string (required, email format)
+//   - name: string (required)
+//   - avatar: string (optional)
+//   - isOnboardingComplete: bool (optional)
+//   - onboardingData: map (optional)
+//   - examDate: string (optional)
+//   - streak: number (optional)
+//   - lastActive: string (optional, date-time)
+//   - settings: map (optional)
+//
+// Collection: dailyProgress
+// Document ID: progressId
+// Fields:
+//   - userId: string (required) - UID of the owner
+//   - date: string (required, YYYY-MM-DD)
+//   - completions: list (optional)
+//   - score: number (optional)
+//
+// Collection: tasks
+// Document ID: taskId
+// Fields:
+//   - userId: string (required) - UID of the owner
+//   - text: string (required)
+//   - subject: string (optional)
+//   - priority: string (optional, enum: High, Medium, Low)
+//   - dueDate: string (optional)
+//   - completed: bool (optional)
+//
+// Collection: subjectNotes
+// Document ID: noteId
+// Fields:
+//   - userId: string (required) - UID of the owner
+//   - subjectId: string (required)
+//   - topicId: string (required)
+//   - note: string (optional)
+//   - confidence: number (optional)
+//
+// Collection: userRoutines
+// Document ID: userId (UID)
+// Fields:
+//   - weekday: list (ScheduleItem objects)
+//   - weekend: list (ScheduleItem objects)
+//
+// Collection: userPlanners
+// Document ID: userId (UID)
+// Fields:
+//   - planner: list (PlannerDay objects)
+//   - startDate: string (YYYY-MM-DD)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') == 'admin') ||
+          (request.auth.token.email == "srivastavshivang484@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'name']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.email is string && isValidEmail(data.email) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('avatar' in data) || (data.avatar is string && data.avatar.size() < 500)) &&
+             (!('isOnboardingComplete' in data) || data.isOnboardingComplete is bool) &&
+             (!('onboardingData' in data) || data.onboardingData is map) &&
+             (!('examDate' in data) || (data.examDate is string && data.examDate.size() < 20)) &&
+             (!('streak' in data) || data.streak is number) &&
+             (!('lastActive' in data) || (data.lastActive is string && data.lastActive.size() < 50)) &&
+             (!('settings' in data) || data.settings is map);
+    }
+
+    function isValidDailyProgress(data) {
+      return hasRequiredFields(['userId', 'date']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.date is string && data.date.matches("^\\d{4}-\\d{2}-\\d{2}$") &&
+             (!('completions' in data) || data.completions is list) &&
+             (!('score' in data) || data.score is number);
+    }
+
+    function isValidTask(data) {
+      return hasRequiredFields(['userId', 'text']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 500 &&
+             (!('subject' in data) || (data.subject is string && data.subject.size() < 100)) &&
+             (!('priority' in data) || data.priority in ['High', 'Medium', 'Low']) &&
+             (!('dueDate' in data) || (data.dueDate is string && data.dueDate.size() < 20)) &&
+             (!('completed' in data) || data.completed is bool);
+    }
+
+    function isValidSubjectNote(data) {
+      return hasRequiredFields(['userId', 'subjectId', 'topicId']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.subjectId is string && data.subjectId.size() > 0 &&
+             data.topicId is string && data.topicId.size() > 0 &&
+             (!('note' in data) || (data.note is string && data.note.size() < 5000)) &&
+             (!('confidence' in data) || data.confidence is number);
+    }
+
+    function isValidUserRoutine(data) {
+      return (!('weekday' in data) || data.weekday is list) &&
+             (!('weekend' in data) || data.weekend is list);
+    }
+
+    function isValidUserPlanner(data) {
+      return (!('planner' in data) || data.planner is list) &&
+             (!('startDate' in data) || (data.startDate is string && data.startDate.matches("^\\d{4}-\\d{2}-\\d{2}$")));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (!('role' in request.resource.data) || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      (request.resource.data.get('role', 'user') == resource.data.get('role', 'user') || isAdmin());
+    }
+
+    match /dailyProgress/{progressId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidDailyProgress(request.resource.data);
+      allow update: if isAuthenticated() && isDocOwner() && isValidDailyProgress(request.resource.data);
+      allow delete: if isAuthenticated() && isDocOwner();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidTask(request.resource.data);
+      allow update: if isAuthenticated() && isDocOwner() && isValidTask(request.resource.data);
+      allow delete: if isAuthenticated() && isDocOwner();
+    }
+
+    match /subjectNotes/{noteId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidSubjectNote(request.resource.data);
+      allow update: if isAuthenticated() && isDocOwner() && isValidSubjectNote(request.resource.data);
+      allow delete: if isAuthenticated() && isDocOwner();
+    }
+
+    match /userRoutines/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) && isValidUserRoutine(request.resource.data);
+    }
+
+    match /userPlanners/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) && isValidUserPlanner(request.resource.data);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

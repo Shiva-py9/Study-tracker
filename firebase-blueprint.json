@@ -1,0 +1,154 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "isOnboardingComplete": { "type": "boolean" },
+        "onboardingData": { "type": "object" },
+        "examDate": { "type": "string" },
+        "streak": { "type": "number" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "morningEmail": { "type": "boolean" },
+            "eveningEmail": { "type": "boolean" },
+            "weeklySummary": { "type": "boolean" },
+            "streakWarning": { "type": "boolean" },
+            "theme": { "type": "string" }
+          }
+        }
+      },
+      "required": ["uid", "email", "name"]
+    },
+    "DailyProgress": {
+      "title": "DailyProgress",
+      "description": "User's daily progress tracking",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "description": "YYYY-MM-DD" },
+        "completions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "blockId": { "type": "string" },
+              "status": { "type": "string", "enum": ["Done", "Skipped", "Partial", "Pending"] },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "score": { "type": "number" }
+      },
+      "required": ["userId", "date"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "User's tasks",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "subject": { "type": "string" },
+        "priority": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "dueDate": { "type": "string" },
+        "completed": { "type": "boolean" }
+      },
+      "required": ["userId", "text"]
+    },
+    "SubjectNote": {
+      "title": "SubjectNote",
+      "description": "User's notes for specific subjects/topics",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "subjectId": { "type": "string" },
+        "topicId": { "type": "string" },
+        "note": { "type": "string" },
+        "confidence": { "type": "number" }
+      },
+      "required": ["userId", "subjectId", "topicId"]
+    },
+    "UserRoutine": {
+      "title": "UserRoutine",
+      "description": "User's custom schedule/routine",
+      "type": "object",
+      "properties": {
+        "weekday": { "type": "array", "items": { "$ref": "ScheduleItem" } },
+        "weekend": { "type": "array", "items": { "$ref": "ScheduleItem" } }
+      }
+    },
+    "ScheduleItem": {
+      "title": "ScheduleItem",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "time": { "type": "string" },
+        "activity": { "type": "string" },
+        "type": { "type": "string", "enum": ["study", "routine", "college", "gym", "family"] }
+      }
+    },
+    "UserPlanner": {
+      "title": "UserPlanner",
+      "description": "User's 21-day planner roadmap",
+      "type": "object",
+      "properties": {
+        "planner": { "type": "array", "items": { "$ref": "PlannerDay" } },
+        "startDate": { "type": "string" }
+      }
+    },
+    "PlannerDay": {
+      "title": "PlannerDay",
+      "type": "object",
+      "properties": {
+        "day": { "type": "number" },
+        "date": { "type": "string" },
+        "blocks": { "type": "array", "items": { "$ref": "PlannerBlock" } }
+      }
+    },
+    "PlannerBlock": {
+      "title": "PlannerBlock",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "subject": { "type": "string" },
+        "topic": { "type": "string" },
+        "time": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile document"
+    },
+    "/dailyProgress/{progressId}": {
+      "schema": "DailyProgress",
+      "description": "Daily progress documents"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Task documents"
+    },
+    "/subjectNotes/{noteId}": {
+      "schema": "SubjectNote",
+      "description": "Subject note documents"
+    },
+    "/userRoutines/{userId}": {
+      "schema": "UserRoutine",
+      "description": "User's custom schedule"
+    },
+    "/userPlanners/{userId}": {
+      "schema": "UserPlanner",
+      "description": "User's planner roadmap"
+    }
+  }
+}
